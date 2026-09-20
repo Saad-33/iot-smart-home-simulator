@@ -1,0 +1,39 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.class
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# SQLite databases (auto-created at runtime)
+data/*.db
+
+# MQTT broker runtime state (auto-created at runtime)
+data/broker_retained.json
+data/e2e_retained.json
+data/test_retained.json
+
+# NVRAM test artifacts (auto-created at runtime)
+data/nvram_test_*.json
+
+# Outage flag files (runtime state)
+data/*.flag
+
+# Logs
+*.log
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Unrelated projects (not part of IoT simulator)
+MiniLang-Compiler/

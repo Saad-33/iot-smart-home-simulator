@@ -1,0 +1,260 @@
+/* ==========================================================================
+   AETHERHOME INDUSTRIAL DESIGN SYSTEM
+   Tactile Smart Home Hardware Aesthetics & Micro-interactions
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+    --bg-base: #08090d;
+    --surface-1: #10131b;
+    --surface-2: #161a24;
+    --surface-3: #1d2230;
+    --border-subtle: rgba(255, 255, 255, 0.07);
+    --border-accent: rgba(99, 102, 241, 0.35);
+    --accent-primary: #6366f1;
+    --color-warm: #f59e0b;
+    --color-cool: #60a5fa;
+    --color-secure: #10b981;
+    --color-danger: #f43f5e;
+}
+
+body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg-base);
+    background-image: 
+        radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 60%),
+        radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    background-size: 100% 100%, 28px 28px;
+    background-attachment: fixed;
+    color: #f1f5f9;
+}
+
+.font-mono {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* --- Hardware Chassis Cards --- */
+.chassis-card {
+    background: linear-gradient(165deg, rgba(22, 26, 36, 0.85) 0%, rgba(12, 14, 20, 0.95) 100%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 18px;
+    box-shadow: 
+        0 1px 1px rgba(0, 0, 0, 0.4),
+        0 8px 24px -6px rgba(0, 0, 0, 0.6),
+        inset 0 1px 1px rgba(255, 255, 255, 0.08);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chassis-card:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.4),
+        0 14px 32px -8px rgba(0, 0, 0, 0.7),
+        inset 0 1px 1px rgba(255, 255, 255, 0.12);
+}
+
+.chassis-inset {
+    background: rgba(8, 10, 15, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* --- Tactile Hardware Rocker Switch --- */
+.rocker-switch {
+    width: 48px;
+    height: 26px;
+    background: #181c26;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9999px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+}
+.rocker-switch.active {
+    background: #4f46e5;
+    border-color: #818cf8;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.5), inset 0 1px 2px rgba(255,255,255,0.3);
+}
+.rocker-knob {
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+    border-radius: 9999px;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+.rocker-switch.active .rocker-knob {
+    transform: translateX(22px);
+    background: #ffffff;
+}
+
+/* --- Mechanical Deadbolt Cutaway Visual --- */
+.deadbolt-chamber {
+    background: #090b10;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    padding: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.strike-plate {
+    width: 24px;
+    height: 48px;
+    background: linear-gradient(180deg, #d97706 0%, #b45309 100%);
+    border-radius: 4px;
+    border: 1px solid #fef3c7;
+    position: relative;
+    box-shadow: 0 0 8px rgba(217, 119, 6, 0.4);
+}
+.strike-hole {
+    width: 14px;
+    height: 26px;
+    background: #040508;
+    border-radius: 3px;
+    position: absolute;
+    top: 11px;
+    left: 0px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.9);
+}
+
+.steel-bolt {
+    height: 24px;
+    width: 80px;
+    background: linear-gradient(180deg, #f8fafc 0%, #94a3b8 50%, #64748b 100%);
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 1px 1px #ffffff;
+    transition: transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.bolt-extended {
+    transform: translateX(38px);
+}
+.bolt-retracted {
+    transform: translateX(-15px);
+}
+
+/* --- Turbine Fan Blade Animation --- */
+@keyframes fan-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.turbine-blade {
+    transform-origin: center center;
+    transition: filter 0.3s ease;
+}
+
+.fan-running-1 {
+    animation: fan-spin 1.0s linear infinite;
+}
+.fan-running-2 {
+    animation: fan-spin 0.45s linear infinite;
+}
+.fan-running-3 {
+    animation: fan-spin 0.18s linear infinite;
+    filter: blur(0.6px);
+}
+.fan-running-0 {
+    animation: none;
+}
+
+/* --- Light Bulb Dynamic Luminous Halo --- */
+.luminous-halo {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- Radar Motion Sweep --- */
+@keyframes radar-sweep {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.radar-sweep-line {
+    animation: radar-sweep 2.5s linear infinite;
+    transform-origin: 50% 50%;
+}
+
+/* --- Tactile Segmented Radio Button --- */
+.segmented-btn {
+    flex: 1;
+    text-align: center;
+    padding: 7px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 8px;
+    color: #94a3b8;
+    background: transparent;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    user-select: none;
+}
+.segmented-btn:hover {
+    color: #ffffff;
+}
+.segmented-btn.active {
+    background: #1e2536;
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* --- Industrial Status LED --- */
+.led-indicator {
+    width: 7px;
+    height: 7px;
+    border-radius: 9999px;
+    display: inline-block;
+}
+.led-green {
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+}
+.led-amber {
+    background: #f59e0b;
+    box-shadow: 0 0 8px #f59e0b;
+}
+.led-red {
+    background: #f43f5e;
+    box-shadow: 0 0 8px #f43f5e;
+}
+
+/* --- Custom Industrial Slider --- */
+input[type=range].hw-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    background: #131722;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    height: 8px;
+    border-radius: 9999px;
+    outline: none;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.6);
+}
+input[type=range].hw-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    border: 1px solid #ffffff;
+    transition: transform 0.1s ease;
+}
+input[type=range].hw-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+}
+input[type=range].hw-slider::-webkit-slider-thumb:active {
+    transform: scale(1.25);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.8);
+}
