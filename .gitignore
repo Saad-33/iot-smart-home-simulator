@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 *.class
@@ -19,8 +19,9 @@ data/broker_retained.json
 data/e2e_retained.json
 data/test_retained.json
 
-# NVRAM test artifacts (auto-created at runtime)
-data/nvram_test_*.json
+# NVRAM artifacts and runtime data (auto-created at runtime)
+data/nvram_*.json
+data/*.json
 
 # Outage flag files (runtime state)
 data/*.flag
