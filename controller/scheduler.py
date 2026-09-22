@@ -21,9 +21,17 @@ logger = logging.getLogger("Scheduler")
 
 
 class SceneScheduler:
-    def __init__(self, db: Database, dispatch_command_cb: Callable[[str, Dict[str, Any], str], None]):
+    def __init__(
+        self,
+        db: Database,
+        dispatch_command_cb: Callable[[str, Dict[str, Any], str], None],
+        clear_override_cb: Optional[Callable[[str], None]] = None,
+        scene_notify_cb: Optional[Callable[[str, Dict[str, Any]], None]] = None
+    ):
         self.db = db
         self.dispatch_command = dispatch_command_cb
+        self.clear_override_cb = clear_override_cb
+        self.scene_notify_cb = scene_notify_cb
 
         # Simulation clock support
         self.virtual_mode: bool = False
@@ -65,14 +73,30 @@ class SceneScheduler:
         logger.info(msg)
         self.db.log_event("SCENE_ACTIVATED", "Scheduler", msg, {"scene_id": scene_id, "actions": actions})
 
+        if self.scene_notify_cb:
+            try:
+                self.scene_notify_cb(scene_id, scene)
+            except Exception as e:
+                logger.debug(f"Error in scene_notify_cb: {e}")
+
+        # Away scene ALWAYS forces override so security arming is absolute
+        if scene_id == "away":
+            force_override = True
+
         for device_id, cmd in actions.items():
             # Respect manual override unless forced
             override = self.db.get_manual_override(device_id)
-            if override and not force_override:
-                suppress_msg = f"Scene '{scene_id}' action on '{device_id}' suppressed by manual override."
-                logger.info(suppress_msg)
-                self.db.log_event("SCENE_SUPPRESSED", "Scheduler", suppress_msg, {"device_id": device_id, "scene_id": scene_id})
-                continue
+            if override:
+                if force_override:
+                    if self.clear_override_cb:
+                        self.clear_override_cb(device_id)
+                    else:
+                        self.db.clear_manual_override(device_id)
+                else:
+                    suppress_msg = f"Scene '{scene_id}' action on '{device_id}' suppressed by manual override."
+                    logger.info(suppress_msg)
+                    self.db.log_event("SCENE_SUPPRESSED", "Scheduler", suppress_msg, {"device_id": device_id, "scene_id": scene_id})
+                    continue
 
             self.dispatch_command(device_id, cmd, f"scene:{scene_id}")
 

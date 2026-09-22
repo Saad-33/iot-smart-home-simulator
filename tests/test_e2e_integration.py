@@ -50,6 +50,7 @@ def run_e2e_test():
         t = threading.Thread(target=dev.start, daemon=True)
         t.start()
     time.sleep(0.8)
+    lock.handle_command({"tamper": False})
 
     print("--- [E2E TEST] Starting Home Controller ---")
     controller = HomeController(broker_port=TEST_PORT, db_path=TEST_DB)

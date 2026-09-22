@@ -65,6 +65,8 @@ class SmartLockDevice(BaseDevice):
                 self.state["bolt_position"] = "extended" if target == "LOCKED" else "retracted"
                 if target == "UNLOCKED":
                     self.state["last_unlocked_at"] = time.time()
+                else:
+                    self.state["last_unlocked_at"] = 0
                 changed = True
         
         if "tamper" in cmd:

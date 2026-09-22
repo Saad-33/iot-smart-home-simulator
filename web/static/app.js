@@ -142,6 +142,12 @@ function handleWsMessage(msg) {
         systemState.simulated_time = data.simulated_time;
         systemState.virtual_mode = data.virtual_mode;
         document.getElementById("clock-display").textContent = data.simulated_time;
+    } else if (event === "scene_update") {
+        if (systemState.scenes) {
+            systemState.scenes.forEach(s => s.is_active = (s.scene_id === data.scene_id));
+        }
+        const badge = document.getElementById("active-scene-badge");
+        if (badge) badge.textContent = data.name || data.scene_id;
     } else if (event === "log_event") {
         addLog(data.event_type || "EVENT", data.message, data.data);
     }
@@ -392,8 +398,11 @@ function renderLock(dev) {
         btnLockText.textContent = "Unlock Deadbolt";
     } else {
         deadboltCylinder.className = "steel-bolt bolt-retracted";
-        boltStatusText.textContent = "RETRACTED (UNSECURED)";
-        boltStatusText.className = "text-amber-400 font-bold";
+        const unlockedAt = state.last_unlocked_at || (Date.now() / 1000);
+        const elapsed = Math.floor((Date.now() / 1000) - unlockedAt);
+        const remaining = Math.max(0, 20 - elapsed);
+        boltStatusText.textContent = `RETRACTED (AUTO-LOCK IN ${remaining}s)`;
+        boltStatusText.className = "text-amber-400 font-bold animate-pulse";
         stateBadge.className = "text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-900/60 text-amber-300 border border-amber-500/30";
         stateBadge.textContent = "UNLOCKED";
         haloBox.className = "w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400";
@@ -579,14 +588,18 @@ function toggleLockOptimistic() {
     // Instant mechanical animation
     lock.state.lock_state = nextState;
     lock.state.bolt_position = nextState === "LOCKED" ? "extended" : "retracted";
+    if (nextState === "UNLOCKED") {
+        lock.state.last_unlocked_at = Date.now() / 1000;
+    } else {
+        lock.state.last_unlocked_at = 0;
+    }
     renderLock(lock);
 
     sendWs({
         action: "command",
         device_id: "lock_front_door",
         command: { lock_state: nextState },
-        as_manual_override: true,
-        duration_seconds: 120,
+        as_manual_override: false,
         reason: `User turned deadbolt to ${nextState}`
     });
 }
@@ -637,6 +650,140 @@ function simulateLocalInput(deviceId, payload) {
     });
 }
 
+function activateSceneOptimistic(sceneId) {
+    const isAway = sceneId === "away";
+
+    // 1. Send WebSocket action to backend scheduler
+    sendWs({
+        action: "scene",
+        scene_id: sceneId,
+        force_override: isAway
+    });
+
+    // HTTP POST fallback in case WebSocket has latency or reconnects
+    fetch(`/api/scenes/${sceneId}/activate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force_override: isAway })
+    }).catch(e => console.debug("Scene HTTP fallback error:", e));
+
+    // Update scene badge in header
+    const sceneObj = (systemState.scenes || []).find(s => s.scene_id === sceneId);
+    const sceneName = sceneObj ? sceneObj.name : (isAway ? "Away / Security Armed" : sceneId);
+    const badge = document.getElementById("active-scene-badge");
+    if (badge) badge.textContent = sceneName;
+    if (systemState.scenes) {
+        systemState.scenes.forEach(s => s.is_active = (s.scene_id === sceneId));
+    }
+
+    addLog("SCENE_ACTIVATED", `Activating Scene: '${sceneName}' (${sceneId})`);
+
+    // 2. Optimistic local UI updates
+    if (isAway) {
+        const light = systemState.devices["light_living_room"];
+        if (light) {
+            light.state = light.state || {};
+            light.state.power = "OFF";
+            renderLight(light);
+        }
+        const fan = systemState.devices["fan_bedroom"];
+        if (fan) {
+            fan.state = fan.state || {};
+            fan.state.power = "OFF";
+            fan.state.speed = 0;
+            fan.state.rpm = 0;
+            renderFan(fan);
+        }
+        const lock = systemState.devices["lock_front_door"];
+        if (lock) {
+            lock.state = lock.state || {};
+            lock.state.lock_state = "LOCKED";
+            lock.state.bolt_position = "extended";
+            lock.state.last_unlocked_at = 0;
+            renderLock(lock);
+        }
+        delete systemState.overrides["light_living_room"];
+        delete systemState.overrides["fan_bedroom"];
+        delete systemState.overrides["lock_front_door"];
+        renderOverride("light_living_room");
+        renderOverride("fan_bedroom");
+        renderOverride("lock_front_door");
+        renderRules();
+    } else if (sceneId === "morning") {
+        const light = systemState.devices["light_living_room"];
+        if (light) {
+            light.state.power = "ON";
+            light.state.brightness = 50;
+            light.state.color_temp = 3000;
+            renderLight(light);
+        }
+        const fan = systemState.devices["fan_bedroom"];
+        if (fan) {
+            fan.state.power = "OFF";
+            fan.state.rpm = 0;
+            renderFan(fan);
+        }
+    } else if (sceneId === "day") {
+        const light = systemState.devices["light_living_room"];
+        if (light) {
+            light.state.power = "OFF";
+            renderLight(light);
+        }
+        const fan = systemState.devices["fan_bedroom"];
+        if (fan) {
+            fan.state.power = "ON";
+            fan.state.speed = 1;
+            fan.state.mode = "eco";
+            fan.state.rpm = 360;
+            renderFan(fan);
+        }
+    } else if (sceneId === "evening") {
+        const light = systemState.devices["light_living_room"];
+        if (light) {
+            light.state.power = "ON";
+            light.state.brightness = 80;
+            light.state.color_temp = 3500;
+            renderLight(light);
+        }
+        const fan = systemState.devices["fan_bedroom"];
+        if (fan) {
+            fan.state.power = "ON";
+            fan.state.speed = 2;
+            fan.state.mode = "normal";
+            fan.state.rpm = 720;
+            renderFan(fan);
+        }
+    } else if (sceneId === "night") {
+        const light = systemState.devices["light_living_room"];
+        if (light) {
+            light.state.power = "OFF";
+            renderLight(light);
+        }
+        const fan = systemState.devices["fan_bedroom"];
+        if (fan) {
+            fan.state.power = "ON";
+            fan.state.speed = 1;
+            fan.state.mode = "normal";
+            fan.state.rpm = 360;
+            renderFan(fan);
+        }
+        const lock = systemState.devices["lock_front_door"];
+        if (lock) {
+            lock.state.lock_state = "LOCKED";
+            lock.state.bolt_position = "extended";
+            lock.state.last_unlocked_at = 0;
+            renderLock(lock);
+        }
+    }
+}
+
+function setVirtualTime(timeStr) {
+    sendWs({
+        action: "virtual_time",
+        time: timeStr
+    });
+}
+
 // ----------------------------------------------------
 // 4. HIGH-FREQUENCY SENSOR STREAMING (THROTTLED)
 // ----------------------------------------------------
@@ -668,9 +815,12 @@ function updateLuxHint(lux, motion) {
             hint.className = "text-amber-400 font-bold";
             hint.textContent = `≤40 lux: DARK ROOM (MOTION ARMED)`;
         }
+    } else if (lux >= 120) {
+        hint.className = "text-sky-400 font-bold";
+        hint.textContent = `≥120 lux: BRIGHT DAYLIGHT (LIGHT AUTO-OFF)`;
     } else {
-        hint.className = "text-slate-500 font-semibold";
-        hint.textContent = `>40 lux: DAYLIGHT (LIGHT INHIBITED)`;
+        hint.className = "text-slate-400 font-semibold";
+        hint.textContent = `40 - 120 lux: AMBIENT DEADBAND`;
     }
 }
 
@@ -815,14 +965,6 @@ function renderScenes() {
     }
 }
 
-function activateSceneOptimistic(sceneId) {
-    sendWs({ action: "scene", scene_id: sceneId, force_override: false });
-}
-
-function setVirtualTime(timeStr) {
-    sendWs({ action: "virtual_time", time: timeStr });
-}
-
 document.getElementById("btn-clock-modal").addEventListener("click", () => {
     const customTime = prompt("Enter simulated time (HH:MM e.g. 07:00, 18:30, 22:30) or blank for real-time:", "07:00");
     if (customTime !== null) {
@@ -893,3 +1035,17 @@ function submitPin() {
         pin: pin
     });
 }
+
+// 1-second dynamic countdown ticker for front door auto-lock
+setInterval(() => {
+    const lock = systemState.devices["lock_front_door"];
+    if (lock && lock.state && lock.state.lock_state === "UNLOCKED") {
+        const unlockedAt = lock.state.last_unlocked_at || (Date.now() / 1000);
+        const elapsed = Math.floor((Date.now() / 1000) - unlockedAt);
+        const remaining = Math.max(0, 20 - elapsed);
+        const boltStatusText = document.getElementById("bolt-status-text");
+        if (boltStatusText) {
+            boltStatusText.textContent = `RETRACTED (AUTO-LOCK IN ${remaining}s)`;
+        }
+    }
+}, 1000);

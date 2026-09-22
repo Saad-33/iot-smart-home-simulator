@@ -60,6 +60,7 @@ class RulesEngine:
         sensor_id = config.get("sensor_id", "sensors_living_room")
         target_device = config.get("target_device", "light_living_room")
         lux_threshold = config.get("lux_threshold", 40)
+        daylight_threshold = config.get("daylight_threshold", 120)
         action = config.get("action", {"power": "ON", "brightness": 60})
 
         sensor = devices.get(sensor_id, {}).get("state", {})
@@ -70,9 +71,12 @@ class RulesEngine:
         if devices.get("lock_front_door", {}).get("state", {}).get("tamper_detected", False):
             return
 
-        # Trigger ON only if motion is detected and room is dark
+        # 1. Trigger ON only if motion is detected and room is dark
         if motion and lux <= lux_threshold:
             self._execute_rule_action(rule_id, target_device, action, f"Motion detected in dark room ({lux} lux <= {lux_threshold} lux)")
+        # 2. Ambient Daylight Inhibit / Harvesting: Turn OFF when daylight is bright
+        elif lux >= daylight_threshold:
+            self._execute_rule_action(rule_id, target_device, {"power": "OFF"}, f"Daylight bright ({lux} lux >= {daylight_threshold} lux) -> Auto-Off")
 
     def _eval_climate_rule(
         self, rule_id: str, config: Dict[str, Any], devices: Dict[str, Dict[str, Any]], now: float
@@ -104,10 +108,21 @@ class RulesEngine:
         lock_state = lock.get("lock_state", "LOCKED")
         last_unlocked = lock.get("last_unlocked_at", 0)
 
-        if lock_state == "UNLOCKED" and last_unlocked > 0:
+        if lock_state == "UNLOCKED":
+            # If unlocked but no timestamp was recorded, initialize timestamp to now so it locks in 20s
+            if not last_unlocked or last_unlocked <= 0:
+                last_unlocked = now
+                lock["last_unlocked_at"] = now
+
             elapsed = now - last_unlocked
             if elapsed >= duration:
-                self._execute_rule_action(rule_id, target_device, action, f"Door unlocked for {int(elapsed)}s (threshold: {duration}s)")
+                # Clear manual override so the lock returns to secured state
+                self.db.clear_manual_override(target_device)
+                self._execute_rule_action(
+                    rule_id, target_device, action,
+                    f"Door unlocked for {int(elapsed)}s (threshold: {duration}s)",
+                    bypass_override=True
+                )
 
     def _eval_tamper_rule(
         self, rule_id: str, config: Dict[str, Any], devices: Dict[str, Dict[str, Any]], now: float
@@ -118,9 +133,14 @@ class RulesEngine:
         action_lock = config.get("action_lock", {"lock_state": "LOCKED"})
 
         lock = devices.get(lock_id, {}).get("state", {})
-        if lock.get("tamper_detected", False):
-            self._execute_rule_action(rule_id, lock_id, action_lock, "Tamper sensor tripped! Immediate lock down", bypass_override=True)
-            self._execute_rule_action(rule_id, light_id, action_light, "Tamper alarm strobe lighting", bypass_override=True)
+        is_tampered = bool(lock.get("tamper_detected", False))
+        if is_tampered:
+            if not getattr(self, "_tamper_active", False):
+                self._tamper_active = True
+                self._execute_rule_action(rule_id, lock_id, action_lock, "Tamper sensor tripped! Immediate lock down", bypass_override=True)
+                self._execute_rule_action(rule_id, light_id, action_light, "Tamper alarm strobe lighting", bypass_override=True)
+        else:
+            self._tamper_active = False
 
     def _execute_rule_action(
         self, rule_id: str, device_id: str, action: Dict[str, Any], reason: str, bypass_override: bool = False
@@ -138,15 +158,16 @@ class RulesEngine:
             self.db.log_event("RULE_SUPPRESSED", "RulesEngine", msg, {"rule_id": rule_id, "device_id": device_id, "override": override})
             return
 
-        # Check if device is already in target state to prevent spamming MQTT
-        current_state = {}
-        if hasattr(self, "_current_devices") and self._current_devices:
-            current_state = self._current_devices.get(device_id, {}).get("state", {})
-        if not current_state:
-            current_state = self.db.get_all_device_states().get(device_id, {}).get("state", {})
-        already_matched = all(current_state.get(k) == v for k, v in action.items())
-        if already_matched:
-            return
+        # Check if device is already in target state to prevent spamming MQTT (unless emergency bypass)
+        if not bypass_override:
+            current_state = {}
+            if hasattr(self, "_current_devices") and self._current_devices:
+                current_state = self._current_devices.get(device_id, {}).get("state", {})
+            if not current_state:
+                current_state = self.db.get_all_device_states().get(device_id, {}).get("state", {})
+            already_matched = all(current_state.get(k) == v for k, v in action.items())
+            if already_matched:
+                return
 
         now = time.time()
         self.db.update_rule_last_triggered(rule_id, now)

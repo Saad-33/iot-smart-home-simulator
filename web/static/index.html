@@ -25,7 +25,7 @@
     </script>
     <!-- Phosphor Icons CDN -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=3.5">
 </head>
 <body class="selection:bg-indigo-600 selection:text-white pb-16 antialiased">
 
@@ -436,7 +436,7 @@
                             <input id="slider-lux" type="range" min="5" max="400" step="5" value="150" class="w-full hw-slider cursor-pointer" oninput="onSensorLuxInput(this.value)">
                             <div class="flex justify-between text-[10px] font-mono text-slate-500 mt-1.5">
                                 <span>5 lux (DARK ROOM)</span>
-                                <span id="lux-rule-hint" class="text-amber-400 font-bold">&le;40 lux + MOTION = LIGHT ON</span>
+                                <span id="lux-rule-hint" class="text-amber-400 font-bold">&le;40 lux: DARK | &ge;120 lux: AUTO-OFF</span>
                                 <span>400 lux</span>
                             </div>
                         </div>
@@ -593,6 +593,6 @@
     </div>
 
     <!-- App JavaScript -->
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=3.5"></script>
 </body>
 </html>

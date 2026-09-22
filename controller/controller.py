@@ -41,7 +41,12 @@ class HomeController:
 
         # Subsystems
         self.rules_engine = RulesEngine(self.db, self.dispatch_command)
-        self.scheduler = SceneScheduler(self.db, self.dispatch_command)
+        self.scheduler = SceneScheduler(
+            self.db,
+            self.dispatch_command,
+            clear_override_cb=self.clear_manual_override,
+            scene_notify_cb=lambda s_id, s_data: self.notify_listeners("scene_update", {"scene_id": s_id, "name": s_data.get("name", s_id)})
+        )
 
         # Listeners for real-time WebSockets
         self._update_listeners: List[Callable[[Dict[str, Any]], None]] = []
