@@ -66,6 +66,10 @@ class RulesEngine:
         motion = sensor.get("motion", False)
         lux = sensor.get("illuminance_lux", 100)
 
+        # Do not interfere if tamper security alarm is active
+        if devices.get("lock_front_door", {}).get("state", {}).get("tamper_detected", False):
+            return
+
         # Trigger ON only if motion is detected and room is dark
         if motion and lux <= lux_threshold:
             self._execute_rule_action(rule_id, target_device, action, f"Motion detected in dark room ({lux} lux <= {lux_threshold} lux)")
@@ -134,16 +138,15 @@ class RulesEngine:
             self.db.log_event("RULE_SUPPRESSED", "RulesEngine", msg, {"rule_id": rule_id, "device_id": device_id, "override": override})
             return
 
-        # Check if device is already in target state to prevent spamming MQTT (unless emergency bypass)
-        if not bypass_override:
-            current_state = {}
-            if hasattr(self, "_current_devices") and self._current_devices:
-                current_state = self._current_devices.get(device_id, {}).get("state", {})
-            if not current_state:
-                current_state = self.db.get_all_device_states().get(device_id, {}).get("state", {})
-            already_matched = all(current_state.get(k) == v for k, v in action.items())
-            if already_matched:
-                return
+        # Check if device is already in target state to prevent spamming MQTT
+        current_state = {}
+        if hasattr(self, "_current_devices") and self._current_devices:
+            current_state = self._current_devices.get(device_id, {}).get("state", {})
+        if not current_state:
+            current_state = self.db.get_all_device_states().get(device_id, {}).get("state", {})
+        already_matched = all(current_state.get(k) == v for k, v in action.items())
+        if already_matched:
+            return
 
         now = time.time()
         self.db.update_rule_last_triggered(rule_id, now)
